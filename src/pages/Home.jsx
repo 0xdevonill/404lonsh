@@ -7,11 +7,10 @@ import { useLaunchStore } from "../hooks/useLaunchStore.js";
 import { formatUsd } from "../lib/format.js";
 
 export default function Home() {
-  const { coins, members, trades } = useLaunchStore();
+  const { coins, trades } = useLaunchStore();
   const live = coins.filter((c) => c.status === "live");
   const upcoming = coins.filter((c) => c.status === "upcoming");
   const featured = [...live, ...upcoming].slice(0, 6);
-  const waitlist = members.length;
   const volume = coins.reduce((s, c) => s + (c.volume || 0), 0);
   const next = upcoming.slice().sort((a, b) => (a.opensAt || 0) - (b.opensAt || 0))[0];
   const nextMins = next?.opensAt ? Math.max(0, Math.ceil((next.opensAt - Date.now()) / 60000)) : 0;
@@ -27,28 +26,25 @@ export default function Home() {
           404 <span className="gradient-text">LAUNCH</span> FUN
         </h1>
         <p className="text-zinc-500 text-xs sm:text-sm mt-3 max-w-xl">
-          Card-based token launchpad for the 404 Origin ecosystem. Join the whitelist, claim a featured slot, and ride the pulse until a coin graduates.
+          Card-based token launchpad for the 404 Origin ecosystem. Upload a logo, set supply and creator commission, buy at launch, then ride the pulse until a coin graduates.
         </p>
         <div className="flex flex-wrap gap-3 mt-6">
-          <Link to="/whitelist" className="btn-neon">
-            Join whitelist
+          <Link to="/create" className="btn-neon">
+            Launch a coin
           </Link>
           <Link to="/launches" className="btn-ghost">
             See coins
-          </Link>
-          <Link to="/create" className="btn-ghost">
-            Launch a coin
           </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Waitlist cards" value={waitlist.toString()} hint="Verified + boarding" />
+        <StatCard label="Tokens launched" value={String(coins.length)} hint="Live + queued + graduated" />
         <StatCard label="Live pulses" value={String(live.length)} hint="Trading on the curve" accent="cyan" />
         <div className="glass pixel-corners p-5 flex flex-col justify-between h-full">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-neon animate-pulse-glow" />
-            <span className="label-mono">Next featured open</span>
+            <span className="label-mono">Next launch open</span>
           </div>
           <div className="mt-4 flex items-end gap-1.5">
             <div className="flex-1">
@@ -86,7 +82,7 @@ export default function Home() {
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <div className="label-mono mb-2">Featured cards</div>
+            <div className="label-mono mb-2">Launch cards</div>
             <h2 className="font-display text-2xl sm:text-3xl font-bold">Live & upcoming launches</h2>
           </div>
           <Link to="/launches" className="text-[11px] tracking-widest uppercase text-neon hover:underline">

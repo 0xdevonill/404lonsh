@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { formatNum, formatUsd, timeAgo } from "../lib/format.js";
 import { GRADUATION_MCAP } from "../lib/data.js";
 import { progressOf } from "../lib/store.js";
+import Sparkline from "./Sparkline.jsx";
 
 const STATUS = {
   live: { label: "LIVE", className: "text-neon border-neon/40 bg-neon/10" },
@@ -24,7 +25,7 @@ export default function LaunchCard({ coin }) {
         <img
           src={coin.image}
           alt={coin.ticker}
-          className="h-14 w-14 shrink-0 pixel-corners border border-white/10 bg-black object-cover"
+          className="h-16 w-16 shrink-0 pixel-corners border border-white/10 bg-black object-cover"
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -37,6 +38,8 @@ export default function LaunchCard({ coin }) {
           {status.label}
         </span>
       </div>
+
+      {coin.candles?.length > 2 && <Sparkline candles={coin.candles} />}
 
       <div className="space-y-2">
         <div className="flex justify-between text-[10px] tracking-widest uppercase text-zinc-500">
@@ -58,18 +61,18 @@ export default function LaunchCard({ coin }) {
           <div className="text-zinc-100 font-bold mt-1">{coin.status === "upcoming" ? "—" : formatUsd(coin.volume)}</div>
         </div>
         <div>
-          <div className="label-mono">Holders</div>
-          <div className="text-zinc-100 font-bold mt-1">{coin.status === "upcoming" ? "—" : formatNum(coin.holders, 0)}</div>
+          <div className="label-mono">Fee</div>
+          <div className="text-zinc-100 font-bold mt-1">{coin.creatorFee || 0}%</div>
         </div>
       </div>
 
       <div className="flex items-center justify-between text-[10px] text-zinc-600 uppercase tracking-widest pt-1 border-t border-white/5">
         <span>
-          {coin.featured && <span className="text-neon mr-2">Featured slot</span>}
-          {coin.status === "upcoming" ? `Opens in ${mins}m` : timeAgo(coin.createdAt)}
+          {formatNum(coin.holders, 0)} holders
+          {coin.status === "upcoming" ? ` · Opens in ${mins}m` : ` · ${timeAgo(coin.createdAt)}`}
         </span>
         <span className="group-hover:text-neon">
-          {coin.status === "graduated" ? `Locked · ${formatUsd(GRADUATION_MCAP)}` : "Open card →"}
+          {coin.status === "graduated" ? `Locked · ${formatUsd(GRADUATION_MCAP)}` : "Chart →"}
         </span>
       </div>
     </Link>

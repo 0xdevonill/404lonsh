@@ -1,11 +1,11 @@
-import { ETH_USD, GRADUATION_MCAP, SEED_COINS, SEED_MEMBERS, STARTING_ETH_BALANCE } from "./data.js";
-import { makeClearanceCode, randomHex } from "./format.js";
-import { punkAvatarSvg } from "./punkAvatar.js";
+import { DEFAULT_SUPPLY, ETH_USD, GRADUATION_MCAP, SEED_COINS, STARTING_ETH_BALANCE } from "./data.js";
+import { randomHex } from "./format.js";
+import { priceFromMcap, pushCandle } from "./chart.js";
 
+const SCHEMA = 3;
 const KEYS = {
+  schema: "lf_schema",
   wallet: "lf_wallet",
-  profile: "lf_profile",
-  members: "lf_members",
   coins: "lf_coins",
   holdings: "lf_holdings",
   trades: "lf_trades",
@@ -41,8 +41,18 @@ function emit() {
 }
 
 function ensureSeeded() {
+  if (read(KEYS.schema, 0) !== SCHEMA) {
+    ["lf_wallet", "lf_profile", "lf_members", "lf_coins", "lf_holdings", "lf_trades", "lf_eth", "lf_schema"].forEach(
+      (k) => localStorage.removeItem(k),
+    );
+    write(KEYS.schema, SCHEMA);
+    write(KEYS.coins, SEED_COINS);
+    write(KEYS.holdings, {});
+    write(KEYS.trades, []);
+    write(KEYS.eth, STARTING_ETH_BALANCE);
+    return;
+  }
   if (!read(KEYS.coins, null)) write(KEYS.coins, SEED_COINS);
-  if (!read(KEYS.members, null)) write(KEYS.members, SEED_MEMBERS);
   if (!read(KEYS.holdings, null)) write(KEYS.holdings, {});
   if (!read(KEYS.trades, null)) write(KEYS.trades, []);
   if (read(KEYS.eth, null) == null) write(KEYS.eth, STARTING_ETH_BALANCE);
@@ -54,8 +64,6 @@ export function getState() {
   ensureSeeded();
   return {
     wallet: read(KEYS.wallet, null),
-    profile: read(KEYS.profile, null),
-    members: read(KEYS.members, SEED_MEMBERS),
     coins: read(KEYS.coins, SEED_COINS),
     holdings: read(KEYS.holdings, {}),
     trades: read(KEYS.trades, []),
@@ -63,29 +71,27 @@ export function getState() {
   };
 }
 
-export function connectWallet(existing) {
-  const address = existing || randomHex(20);
-  write(KEYS.wallet, address);
-  let profile = read(KEYS.profile, null);
-  if (!profile || profile.address !== address) {
-    const members = read(KEYS.members, SEED_MEMBERS);
-    const found = members.find((m) => m.address.toLowerCase() === address.toLowerCase());
-    profile = found
-      ? { ...found }
-      : {
-          address,
-          handle: "",
-          email: "",
-          spot: members.length + 1,
-          clearance: 50,
-          joinedAt: Date.now(),
-          code: makeClearanceCode(address),
-        };
-    write(KEYS.profile, profile);
-    if (!found) {
-      write(KEYS.members, [profile, ...members]);
+export async function connectDemoWallet() {
+  try {
+    if (typeof window !== "undefined" && window.ethereum?.request) {
+      const accounts = await Promise.race([
+        window.ethereum.request({ method: "eth_requestAccounts" }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("wallet timeout")), 1200)),
+      ]);
+      if (accounts?.[0]) {
+        connectWallet(accounts[0]);
+        return getState();
+      }
     }
+  } catch {
+    /* demo wallet */
   }
+  connectWallet();
+  return getState();
+}
+
+export function connectWallet(existing) {
+  write(KEYS.wallet, existing || randomHex(20));
   emit();
   return getState();
 }
@@ -95,48 +101,26 @@ export function disconnectWallet() {
   emit();
 }
 
-export function updateProfile(patch) {
-  const state = getState();
-  if (!state.profile) return state;
-  const profile = { ...state.profile, ...patch };
-  if (profile.handle && profile.handle.replace("@", "").trim()) {
-    profile.clearance = 100;
-    profile.handle = profile.handle.replace(/^@/, "").trim();
-  }
-  write(KEYS.profile, profile);
-  const members = state.members.map((m) =>
-    m.address.toLowerCase() === profile.address.toLowerCase() ? profile : m,
-  );
-  if (!members.some((m) => m.address.toLowerCase() === profile.address.toLowerCase())) {
-    members.unshift(profile);
-  }
-  write(KEYS.members, members);
-  emit();
-  return getState();
-}
-
 export function resetDemo() {
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+  ["lf_profile", "lf_members"].forEach((k) => localStorage.removeItem(k));
   ensureSeeded();
   emit();
 }
 
-function priceFromMcap(mcap) {
-  const supply = 1_000_000_000;
-  const cap = Math.max(mcap, 800);
-  return cap / supply;
-}
-
 export function quoteBuy(coin, ethIn) {
-  const usd = ethIn * ETH_USD;
-  const price = priceFromMcap(coin.mcap || 1200);
+  const feePct = Math.min(10, Math.max(0, Number(coin.creatorFee) || 0)) / 100;
+  const feeEth = ethIn * feePct;
+  const tradeEth = Math.max(0, ethIn - feeEth);
+  const usd = tradeEth * ETH_USD;
+  const price = priceFromMcap(coin.mcap || 1200, coin.supply || DEFAULT_SUPPLY);
   const tokens = usd / price;
   const nextMcap = (coin.mcap || 0) + usd;
-  return { tokens, usd, nextMcap, price };
+  return { tokens, usd, nextMcap, price, feeEth, tradeEth };
 }
 
 export function quoteSell(coin, tokenIn) {
-  const price = priceFromMcap(coin.mcap || 1200);
+  const price = priceFromMcap(coin.mcap || 1200, coin.supply || DEFAULT_SUPPLY);
   const usd = tokenIn * price * 0.97;
   const ethOut = usd / ETH_USD;
   const nextMcap = Math.max(400, (coin.mcap || 0) - usd);
@@ -169,17 +153,21 @@ export function trade({ coinId, side, ethAmount, tokenAmount }) {
     const q = quoteBuy(coin, amt);
     eth -= amt;
     pos.tokens += q.tokens;
-    pos.spentEth += amt;
+    pos.spentEth += q.tradeEth;
     coin.mcap = q.nextMcap;
     coin.volume = (coin.volume || 0) + q.usd;
+    coin.creatorFeesEth = (coin.creatorFeesEth || 0) + q.feeEth;
     if (wasEmpty) coin.holders = (coin.holders || 0) + 1;
     if (coin.mcap >= GRADUATION_MCAP) coin.status = "graduated";
+    const px = priceFromMcap(coin.mcap, coin.supply);
+    coin.candles = pushCandle(coin.candles, px, q.usd);
     tradeRow = {
       id: randomHex(8),
       coinId,
       ticker: coin.ticker,
       side: "buy",
       eth: amt,
+      feeEth: q.feeEth,
       tokens: q.tokens,
       usd: q.usd,
       wallet: state.wallet,
@@ -194,6 +182,8 @@ export function trade({ coinId, side, ethAmount, tokenAmount }) {
     eth += q.ethOut;
     coin.mcap = q.nextMcap;
     coin.volume = (coin.volume || 0) + q.usd;
+    const px = priceFromMcap(coin.mcap, coin.supply);
+    coin.candles = pushCandle(coin.candles, px, q.usd);
     tradeRow = {
       id: randomHex(8),
       coinId,
@@ -219,42 +209,64 @@ export function trade({ coinId, side, ethAmount, tokenAmount }) {
   return getState();
 }
 
-export function launchCoin({ name, ticker, description, twitter }) {
+export function launchCoin({ name, ticker, description, twitter, image, supply, creatorFee, devBuyEth }) {
   const state = getState();
   if (!state.wallet) throw new Error("Connect a wallet to launch.");
   const cleanTicker = (ticker || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 10);
   const cleanName = (name || "").trim();
   if (!cleanName) throw new Error("Name is required.");
   if (cleanTicker.length < 2) throw new Error("Ticker is too short.");
+  if (!image) throw new Error("Upload a logo like pump.fun.");
   if (state.coins.some((c) => c.ticker === cleanTicker)) throw new Error("Ticker already exists.");
 
-  const featured = state.profile?.clearance === 100;
+  const totalSupply = Math.max(1_000_000, Number(supply) || DEFAULT_SUPPLY);
+  const fee = Math.min(10, Math.max(0, Number(creatorFee) || 0));
+  const buy = Math.max(0, Number(devBuyEth) || 0);
+  if (buy > state.eth + 1e-9) throw new Error("Not enough demo ETH for the launch buy.");
+
+  const startMcap = 1200;
   const coin = {
     id: `${cleanTicker.toLowerCase()}-${Date.now().toString(36)}`,
     name: cleanName,
     ticker: cleanTicker,
     description: (description || "").trim() || "A new pulse on 404 Launch Fun.",
     status: "live",
-    mcap: 1400,
+    mcap: startMcap,
     volume: 0,
-    holders: 1,
+    holders: 0,
     createdAt: Date.now(),
     creator: state.wallet,
     twitter: (twitter || "").replace(/^@/, ""),
     replies: 0,
-    featured,
-    image: punkAvatarSvg(cleanTicker + cleanName),
+    supply: totalSupply,
+    creatorFee: fee,
+    creatorFeesEth: 0,
+    image,
+    candles: [
+      {
+        t: Date.now(),
+        o: priceFromMcap(startMcap, totalSupply),
+        h: priceFromMcap(startMcap, totalSupply),
+        l: priceFromMcap(startMcap, totalSupply),
+        c: priceFromMcap(startMcap, totalSupply),
+        v: 0,
+      },
+    ],
   };
 
   write(KEYS.coins, [coin, ...state.coins]);
   const holdings = { ...state.holdings };
   const mine = { ...(holdings[state.wallet] || {}) };
-  mine[coin.id] = { tokens: 20_000_000, spentEth: 0.02 };
+  mine[coin.id] = { tokens: 0, spentEth: 0 };
   holdings[state.wallet] = mine;
   write(KEYS.holdings, holdings);
-  write(KEYS.eth, Math.max(0, state.eth - 0.02));
-  emit();
-  return coin;
+
+  if (buy > 0) {
+    trade({ coinId: coin.id, side: "buy", ethAmount: buy });
+  } else {
+    emit();
+  }
+  return getState().coins.find((c) => c.id === coin.id) || coin;
 }
 
 export function addReply(coinId, text) {
@@ -295,7 +307,15 @@ export function tickOpenings() {
   const coins = state.coins.map((c) => {
     if (c.status === "upcoming" && c.opensAt && Date.now() >= c.opensAt) {
       changed = true;
-      return { ...c, status: "live", mcap: Math.max(c.mcap || 0, 1200) };
+      const mcap = Math.max(c.mcap || 0, 1200);
+      const supply = c.supply || DEFAULT_SUPPLY;
+      const px = priceFromMcap(mcap, supply);
+      return {
+        ...c,
+        status: "live",
+        mcap,
+        candles: c.candles?.length ? c.candles : [{ t: Date.now(), o: px, h: px, l: px, c: px, v: 0 }],
+      };
     }
     return c;
   });

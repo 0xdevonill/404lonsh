@@ -12,6 +12,11 @@ export function formatUsd(n) {
 
 export function formatNum(n, digits = 2) {
   const v = Number(n) || 0;
+  if (digits === 0) {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+    return String(Math.round(v));
+  }
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(digits)}M`;
   if (v >= 1_000) return `${(v / 1_000).toFixed(digits)}K`;
   if (v >= 10) return v.toFixed(0);
@@ -51,9 +56,4 @@ export function randomHex(bytes = 20) {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
   return `0x${Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("")}`;
-}
-
-export function makeClearanceCode(addr) {
-  const h = hashString((addr || "404") + Date.now().toString(36));
-  return `4L-${h.toString(16).slice(0, 6).toUpperCase()}`;
 }
