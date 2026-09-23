@@ -1,10 +1,12 @@
 import { punkAvatarSvg } from "./punkAvatar.js";
+import { generateCandles, priceFromMcap } from "./chart.js";
 
 export const GRADUATION_MCAP = 69000;
 export const ETH_USD = 3200;
 export const STARTING_ETH_BALANCE = 2.5;
+export const DEFAULT_SUPPLY = 1_000_000_000;
 
-export const SEED_COINS = [
+const RAW_COINS = [
   {
     id: "origin",
     name: "404 Origin",
@@ -18,7 +20,9 @@ export const SEED_COINS = [
     creator: "0x4040rigin000000000000000000000000000001",
     twitter: "404punks",
     replies: 41,
-    featured: true,
+    supply: 1_000_000_000,
+    creatorFee: 1,
+    creatorFeesEth: 0.42,
   },
   {
     id: "glitch",
@@ -33,7 +37,9 @@ export const SEED_COINS = [
     creator: "0x404g1itch00000000000000000000000000002",
     twitter: "glitchpulse",
     replies: 19,
-    featured: true,
+    supply: 1_000_000_000,
+    creatorFee: 2,
+    creatorFeesEth: 0.18,
   },
   {
     id: "deadaddr",
@@ -48,6 +54,9 @@ export const SEED_COINS = [
     creator: "0x404dead0000000000000000000000000000003",
     twitter: "deadlab",
     replies: 7,
+    supply: 100_000_000,
+    creatorFee: 1.5,
+    creatorFeesEth: 0.04,
   },
   {
     id: "vaultcat",
@@ -63,12 +72,15 @@ export const SEED_COINS = [
     creator: "0x404vault000000000000000000000000000004",
     twitter: "vaultcat",
     replies: 23,
+    supply: 1_000_000_000,
+    creatorFee: 0.5,
+    creatorFeesEth: 0,
   },
   {
     id: "neonpunk",
     name: "Neon Punk",
     ticker: "NPUNK",
-    description: "Pixel-cropped punks riding the lime signal. Featured whitelist slot.",
+    description: "Pixel-cropped punks riding the lime signal.",
     status: "upcoming",
     mcap: 0,
     volume: 0,
@@ -78,6 +90,9 @@ export const SEED_COINS = [
     creator: "0x404neon0000000000000000000000000000005",
     twitter: "neonpunks",
     replies: 12,
+    supply: 1_000_000_000,
+    creatorFee: 2,
+    creatorFeesEth: 0,
   },
   {
     id: "rhc",
@@ -92,12 +107,15 @@ export const SEED_COINS = [
     creator: "0x404rhc00000000000000000000000000000006",
     twitter: "robinhoodcoin",
     replies: 88,
+    supply: 1_000_000_000,
+    creatorFee: 1,
+    creatorFeesEth: 1.1,
   },
   {
     id: "slot",
     name: "Slot Machine",
     ticker: "SLOT",
-    description: "Clearance codes as culture. Holders get first dibs on featured launch slots.",
+    description: "Holders get first dibs on featured launch slots.",
     status: "graduated",
     mcap: 81200,
     volume: 27400,
@@ -106,6 +124,9 @@ export const SEED_COINS = [
     creator: "0x404slot0000000000000000000000000000007",
     twitter: "slotmachine",
     replies: 34,
+    supply: 500_000_000,
+    creatorFee: 3,
+    creatorFeesEth: 0.66,
   },
   {
     id: "scan",
@@ -120,44 +141,39 @@ export const SEED_COINS = [
     creator: "0x404scan0000000000000000000000000000008",
     twitter: "scanline404",
     replies: 4,
+    supply: 1_000_000_000,
+    creatorFee: 1,
+    creatorFeesEth: 0.02,
   },
-].map((coin) => ({
-  ...coin,
-  image: punkAvatarSvg(coin.ticker),
-  replies: coin.replies || 0,
-}));
+];
 
-export const SEED_MEMBERS = [
-  { handle: "originops", address: "0x404a1b2c3d4e5f67890123456789012345678901", spot: 1, clearance: 100 },
-  { handle: "limewire", address: "0x88c1d2e3f4051627384950617283940516273849", spot: 2, clearance: 100 },
-  { handle: "vaultcat", address: "0x12ab34cd56ef78901234567890abcdef12345678", spot: 3, clearance: 100 },
-  { handle: "deadlab", address: "0xdead00000000000000000000000000000000beef", spot: 4, clearance: 100 },
-  { handle: "glitchkid", address: "0x777111222333444555666777888999000aaabbb", spot: 5, clearance: 100 },
-  { handle: "pixelqueen", address: "0xabcabcabcabcabcabcabcabcabcabcabcabcabca", spot: 6, clearance: 100 },
-  { handle: "rhcmaxi", address: "0x1010101010101010101010101010101010101010", spot: 7, clearance: 100 },
-  { handle: "scanlord", address: "0x5555666677778888999900001111222233334444", spot: 8, clearance: 100 },
-].map((m, i) => ({
-  ...m,
-  joinedAt: Date.now() - 1000 * 60 * 60 * (48 - i * 3),
-  code: `4L-SEED${String(m.spot).padStart(2, "0")}`,
-  email: "",
-}));
+export const SEED_COINS = RAW_COINS.map((coin) => {
+  const supply = coin.supply || DEFAULT_SUPPLY;
+  const price = coin.mcap ? priceFromMcap(coin.mcap, supply) : 0;
+  return {
+    ...coin,
+    supply,
+    image: punkAvatarSvg(coin.ticker),
+    replies: coin.replies || 0,
+    candles: coin.status === "upcoming" ? [] : generateCandles(coin.ticker, price || 0.00001, 48),
+  };
+});
 
 export const HOW_IT_WORKS = [
   {
     n: "01",
-    title: "Clear the board",
-    body: "Paste or connect a wallet for 50% clearance. Drop your X handle plus the one-time code to hit 100% and land a numbered card on the public board.",
+    title: "Drop the logo",
+    body: "Launch like pump.fun: upload a square logo, name the coin, set the ticker. The art sits on every card and the trading chart.",
   },
   {
     n: "02",
-    title: "Claim a launch slot",
-    body: "Verified members get featured slots. Name the coin, set a ticker, drop pixel art, and seed the pulse curve. No idle fee pile — creator fees have a job.",
+    title: "Set supply, fee, and a dev buy",
+    body: "Choose total supply, lock in a creator commission (0–10%), and optionally buy your own coin at launch so the curve opens with a print.",
   },
   {
     n: "03",
     title: "Trade the pulse",
-    body: "Live coins trade on a public bonding curve. Buys fill the bar. Sells bleed it. Everything is a card: cap, holders, volume, and your position.",
+    body: "Live coins trade on a public bonding curve with a real candle chart. Buys fill the bar. Sells bleed it. Creator fees skim from every buy.",
   },
   {
     n: "04",
@@ -169,19 +185,19 @@ export const HOW_IT_WORKS = [
 export const FAQ = [
   {
     q: "What is 404 Launch Fun?",
-    a: "A card-based token launchpad for the 404 Origin ecosystem. Creators launch coins, the pulse curve fills in public, and whitelist members get first-line access to every featured slot.",
+    a: "A card-based token launchpad for the 404 Origin ecosystem. Creators upload a logo, set supply and commission, optionally buy at launch, then the pulse curve fills in public.",
   },
   {
-    q: "How does clearance work?",
-    a: "Add a wallet to board at 50%. Verify an X handle with your unique 4L code to reach 100% and appear on the verified board. One entry per wallet.",
+    q: "How does creator commission work?",
+    a: "You set 0–10% at launch. Every buy on the curve skims that percent of ETH to the creator. It is locked for that coin and shown on the token card.",
+  },
+  {
+    q: "Can I buy at launch?",
+    a: "Yes. The create screen has a dev-buy field. That ETH is spent on your coin in the same launch, so you start with a bag and the chart prints immediately.",
   },
   {
     q: "Is this custodial?",
-    a: "No. 404 Launch Fun only stores a public wallet address, optional email, and X handle in your browser for this demo. Never seed phrases or private keys.",
-  },
-  {
-    q: "When do launches open?",
-    a: "Live coins are already on the pulse. Upcoming cards show a countdown. Whitelist members get an email-style alert in the terminal the moment a featured slot flips live.",
+    a: "No. 404 Launch Fun only stores a public wallet address and the coin data in your browser for this demo. Never seed phrases or private keys.",
   },
   {
     q: "What happens at graduation?",

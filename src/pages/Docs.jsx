@@ -11,7 +11,7 @@ export default function Docs() {
           HOW <span className="gradient-text">404 LAUNCH FUN</span> WORKS
         </h1>
         <p className="text-zinc-500 text-xs sm:text-sm mt-3">
-          A launchpad on Robinhood Chain, rebuilt as a card terminal for the 404 Origin look. Creators launch tokens. The pulse curve fills. Fees have a job instead of sitting idle.
+          A launchpad on Robinhood Chain, rebuilt as a card terminal for the 404 Origin look. Creators launch tokens with a logo, supply, and commission. The pulse curve fills on a live chart.
         </p>
       </div>
 
@@ -39,11 +39,11 @@ export default function Docs() {
       </section>
 
       <div className="flex flex-wrap gap-3">
-        <Link to="/whitelist" className="btn-neon">
-          Join whitelist
-        </Link>
-        <Link to="/create" className="btn-ghost">
+        <Link to="/create" className="btn-neon">
           Launch a coin
+        </Link>
+        <Link to="/launches" className="btn-ghost">
+          See coins
         </Link>
         <button
           type="button"

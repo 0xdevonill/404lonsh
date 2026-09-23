@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { connectDemoWallet, disconnectWallet } from "../lib/store.js";
 import { shorten } from "../lib/format.js";
@@ -7,17 +7,14 @@ import { useLaunchStore } from "../hooks/useLaunchStore.js";
 const LINKS = [
   { to: "/", label: "Home" },
   { to: "/launches", label: "Launches" },
-  { to: "/whitelist", label: "Whitelist" },
-  { to: "/board", label: "Board" },
   { to: "/create", label: "Launch" },
   { to: "/docs", label: "How it works" },
 ];
 
 export default function Header() {
-  const { wallet, profile, eth } = useLaunchStore();
+  const { wallet, eth } = useLaunchStore();
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const active =
     LINKS.find((l) => (l.to === "/" ? location.pathname === "/" : location.pathname.startsWith(l.to))) ||
     (location.pathname.startsWith("/coin") ? { label: "Launches" } : { label: "Menu" });
@@ -41,15 +38,9 @@ export default function Header() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           {wallet && (
-            <button
-              type="button"
-              onClick={() => navigate("/whitelist")}
-              className="hidden md:flex glass pixel-corners items-center gap-2 px-3 py-2 text-[10px] tracking-widest uppercase text-zinc-400"
-            >
+            <div className="hidden md:flex glass pixel-corners items-center gap-2 px-3 py-2 text-[10px] tracking-widest uppercase text-zinc-400">
               <span className="text-neon tabular-nums">{eth.toFixed(3)} ETH</span>
-              <span className="text-zinc-600">·</span>
-              <span>{profile?.clearance || 0}% WL</span>
-            </button>
+            </div>
           )}
 
           {wallet ? (

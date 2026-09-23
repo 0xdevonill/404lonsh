@@ -9,21 +9,18 @@ export default function Footer() {
             404<span className="text-neon">Launch</span>Fun
           </div>
           <p className="text-xs text-zinc-500 mt-3 max-w-xs">
-            Card-based launchpad for the 404 Origin ecosystem. Whitelist first. Pulse the curve. Graduate clean.
+            Card-based launchpad for the 404 Origin ecosystem. Logo, supply, creator fee, then pulse the curve.
           </p>
         </div>
         <div className="space-y-2 text-xs tracking-widest uppercase text-zinc-500">
           <Link className="block hover:text-neon" to="/launches">
             Launches
           </Link>
-          <Link className="block hover:text-neon" to="/whitelist">
-            Join whitelist
-          </Link>
-          <Link className="block hover:text-neon" to="/board">
-            Verified board
-          </Link>
           <Link className="block hover:text-neon" to="/create">
             Launch a coin
+          </Link>
+          <Link className="block hover:text-neon" to="/docs">
+            How it works
           </Link>
         </div>
         <div className="text-xs text-zinc-600 space-y-2">
