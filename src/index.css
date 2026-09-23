@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-void text-zinc-200 font-mono antialiased;
+  background-image:
+    radial-gradient(110% 80% at 50% -10%, rgba(204, 255, 0, 0.1) 0, transparent 60%),
+    radial-gradient(80% 60% at 90% 10%, rgba(127, 231, 216, 0.08) 0, transparent 65%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: #cf0;
+  color: #0a0a0a;
+}
+
+@layer components {
+  .pixel-corners {
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+
+  .glass {
+    background: hsla(0, 0%, 100%, 0.04);
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid hsla(0, 0%, 100%, 0.09);
+  }
+
+  .glass-strong {
+    background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.09), hsla(0, 0%, 100%, 0.03));
+    backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid hsla(0, 0%, 100%, 0.12);
+    box-shadow: 0 20px 60px -24px rgba(0, 0, 0, 0.8);
+  }
+
+  .label-mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #a1a1aa;
+  }
+
+  .gradient-text {
+    background: linear-gradient(120deg, #cf0, #baf25a 45%, #7fe7d8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .btn-neon {
+    @apply bg-neon text-black pixel-corners font-mono px-5 py-2.5 text-[11px] font-bold tracking-[0.16em] uppercase transition-transform duration-300 hover:scale-[1.03] inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-ghost {
+    @apply glass pixel-corners font-mono px-5 py-2.5 text-[11px] font-bold tracking-[0.16em] uppercase text-zinc-300 hover:text-white transition-colors inline-flex items-center justify-center gap-2;
+  }
+
+  .input-terminal {
+    @apply w-full bg-black/40 border border-white/10 pixel-corners px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-neon;
+  }
+
+  .progress-track {
+    @apply h-[6px] w-full bg-white/10 overflow-hidden;
+    clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  }
+
+  .progress-fill {
+    @apply h-full bg-gradient-to-r from-neon via-lime to-mint;
+  }
+}
+
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.35;
+}
+
+.marquee-row {
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
