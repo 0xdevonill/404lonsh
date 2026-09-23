@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { formatNum, formatUsd, timeAgo } from "../lib/format.js";
+import { formatNum, formatUsd, shorten, timeAgo } from "../lib/format.js";
 import { GRADUATION_MCAP } from "../lib/data.js";
 import { progressOf } from "../lib/store.js";
 import Sparkline from "./Sparkline.jsx";
 
 const STATUS = {
   live: { label: "LIVE", className: "text-neon border-neon/40 bg-neon/10" },
+  deployed: { label: "DEPLOYED", className: "text-lime border-lime/40 bg-lime/10" },
   upcoming: { label: "UPCOMING", className: "text-mint border-mint/40 bg-mint/10" },
   graduated: { label: "GRADUATED", className: "text-zinc-300 border-white/20 bg-white/5" },
 };
@@ -31,6 +32,9 @@ export default function LaunchCard({ coin }) {
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-display font-bold text-white truncate">{coin.name}</h3>
             <span className="text-neon text-xs font-bold">${coin.ticker}</span>
+            {coin.contractAddress && (
+              <span className="text-[9px] tracking-widest text-zinc-500">{shorten(coin.contractAddress, 4)}</span>
+            )}
           </div>
           <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2">{coin.description}</p>
         </div>
@@ -72,7 +76,11 @@ export default function LaunchCard({ coin }) {
           {coin.status === "upcoming" ? ` · Opens in ${mins}m` : ` · ${timeAgo(coin.createdAt)}`}
         </span>
         <span className="group-hover:text-neon">
-          {coin.status === "graduated" ? `Locked · ${formatUsd(GRADUATION_MCAP)}` : "Chart →"}
+          {coin.status === "deployed"
+            ? "Add contract →"
+            : coin.status === "graduated"
+              ? `Locked · ${formatUsd(GRADUATION_MCAP)}`
+              : "Chart →"}
         </span>
       </div>
     </Link>

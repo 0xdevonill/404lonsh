@@ -23,7 +23,32 @@ function read(key, fallback) {
 }
 
 function write(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode or quota — don't crash the page */
+  }
+}
+
+function isPinned(coin) {
+  return Boolean(coin && coin.pinnedFirst && coin.contractAddress);
+}
+
+function orderCoins(coins) {
+  const list = Array.isArray(coins) ? coins : [];
+  const pinned = [];
+  const rest = [];
+  for (const coin of list) {
+    if (!coin || typeof coin !== "object") continue;
+    if (isPinned(coin)) pinned.push(coin);
+    else rest.push(coin);
+  }
+  pinned.sort((a, b) => (b.liveAt || 0) - (a.liveAt || 0) || String(b.id).localeCompare(String(a.id)));
+  return [...pinned, ...rest];
+}
+
+function saveCoins(coins) {
+  write(KEYS.coins, orderCoins(coins));
 }
 
 function listeners() {
@@ -41,6 +66,14 @@ function emit() {
 }
 
 function ensureSeeded() {
+  try {
+    ensureSeededInner();
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function ensureSeededInner() {
   if (read(KEYS.schema, 0) !== SCHEMA) {
     ["lf_wallet", "lf_profile", "lf_members", "lf_coins", "lf_holdings", "lf_trades", "lf_eth", "lf_schema"].forEach(
       (k) => localStorage.removeItem(k),
@@ -64,7 +97,7 @@ export function getState() {
   ensureSeeded();
   return {
     wallet: read(KEYS.wallet, null),
-    coins: read(KEYS.coins, SEED_COINS),
+    coins: orderCoins(read(KEYS.coins, SEED_COINS)),
     holdings: read(KEYS.holdings, {}),
     trades: read(KEYS.trades, []),
     eth: Number(read(KEYS.eth, STARTING_ETH_BALANCE)),
@@ -90,8 +123,12 @@ export async function connectDemoWallet() {
   return getState();
 }
 
+const LAST_WALLET = "lf_last_wallet";
+
 export function connectWallet(existing) {
-  write(KEYS.wallet, existing || randomHex(20));
+  const addr = existing || read(LAST_WALLET, null) || randomHex(20);
+  write(KEYS.wallet, addr);
+  write(LAST_WALLET, addr);
   emit();
   return getState();
 }
@@ -102,8 +139,12 @@ export function disconnectWallet() {
 }
 
 export function resetDemo() {
-  Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
-  ["lf_profile", "lf_members"].forEach((k) => localStorage.removeItem(k));
+  try {
+    Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+    ["lf_profile", "lf_members", LAST_WALLET].forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
   ensureSeeded();
   emit();
 }
@@ -127,13 +168,16 @@ export function quoteSell(coin, tokenIn) {
   return { ethOut, usd, nextMcap, price };
 }
 
-export function trade({ coinId, side, ethAmount, tokenAmount }) {
+export function trade({ coinId, side, ethAmount, tokenAmount, allowDeployed = false }) {
   const state = getState();
   if (!state.wallet) throw new Error("Connect a wallet first.");
   const coins = state.coins.map((c) => ({ ...c }));
   const coin = coins.find((c) => c.id === coinId);
   if (!coin) throw new Error("Coin not found.");
   if (coin.status === "upcoming") throw new Error("This slot is not live yet.");
+  if (coin.status === "deployed" && !allowDeployed) {
+    throw new Error("Add the contract address to send this coin live.");
+  }
   if (coin.status === "graduated" && side === "buy") {
     throw new Error("Graduated coins trade on the pool, not the pulse.");
   }
@@ -158,7 +202,7 @@ export function trade({ coinId, side, ethAmount, tokenAmount }) {
     coin.volume = (coin.volume || 0) + q.usd;
     coin.creatorFeesEth = (coin.creatorFeesEth || 0) + q.feeEth;
     if (wasEmpty) coin.holders = (coin.holders || 0) + 1;
-    if (coin.mcap >= GRADUATION_MCAP) coin.status = "graduated";
+    if (coin.status === "live" && coin.mcap >= GRADUATION_MCAP) coin.status = "graduated";
     const px = priceFromMcap(coin.mcap, coin.supply);
     coin.candles = pushCandle(coin.candles, px, q.usd);
     tradeRow = {
@@ -201,7 +245,7 @@ export function trade({ coinId, side, ethAmount, tokenAmount }) {
   holdings[state.wallet] = mine;
   const trades = [tradeRow, ...state.trades].slice(0, 80);
 
-  write(KEYS.coins, coins);
+  saveCoins(coins);
   write(KEYS.holdings, holdings);
   write(KEYS.trades, trades);
   write(KEYS.eth, eth);
@@ -230,7 +274,7 @@ export function launchCoin({ name, ticker, description, twitter, image, supply, 
     name: cleanName,
     ticker: cleanTicker,
     description: (description || "").trim() || "A new pulse on 404 Launch Fun.",
-    status: "live",
+    status: "deployed",
     mcap: startMcap,
     volume: 0,
     holders: 0,
@@ -242,6 +286,9 @@ export function launchCoin({ name, ticker, description, twitter, image, supply, 
     creatorFee: fee,
     creatorFeesEth: 0,
     image,
+    contractAddress: "",
+    pinnedFirst: false,
+    liveAt: 0,
     candles: [
       {
         t: Date.now(),
@@ -254,7 +301,7 @@ export function launchCoin({ name, ticker, description, twitter, image, supply, 
     ],
   };
 
-  write(KEYS.coins, [coin, ...state.coins]);
+  saveCoins([coin, ...state.coins]);
   const holdings = { ...state.holdings };
   const mine = { ...(holdings[state.wallet] || {}) };
   mine[coin.id] = { tokens: 0, spentEth: 0 };
@@ -262,7 +309,7 @@ export function launchCoin({ name, ticker, description, twitter, image, supply, 
   write(KEYS.holdings, holdings);
 
   if (buy > 0) {
-    trade({ coinId: coin.id, side: "buy", ethAmount: buy });
+    trade({ coinId: coin.id, side: "buy", ethAmount: buy, allowDeployed: true });
   } else {
     emit();
   }
@@ -277,7 +324,7 @@ export function addReply(coinId, text) {
   const coins = state.coins.map((c) =>
     c.id === coinId ? { ...c, replies: (c.replies || 0) + 1 } : c,
   );
-  write(KEYS.coins, coins);
+  saveCoins(coins);
   const trades = [
     {
       id: randomHex(8),
@@ -292,6 +339,36 @@ export function addReply(coinId, text) {
   ].slice(0, 80);
   write(KEYS.trades, trades);
   emit();
+}
+
+const CONTRACT_RE = /^0x[a-fA-F0-9]{40}$/;
+
+export function setContractAddress(coinId, address) {
+  const state = getState();
+  if (!state.wallet) throw new Error("Connect the creator wallet first.");
+  const addr = String(address || "").trim();
+  if (!CONTRACT_RE.test(addr) || /^0x0{40}$/i.test(addr)) {
+    throw new Error("Enter a valid contract address (0x and 40 hex characters).");
+  }
+  const coins = state.coins.map((c) => ({ ...c }));
+  const coin = coins.find((c) => c.id === coinId);
+  if (!coin) throw new Error("Coin not found.");
+  if ((coin.creator || "").toLowerCase() !== state.wallet.toLowerCase()) {
+    throw new Error("Only the creator can add the contract address.");
+  }
+  if (coin.contractAddress) throw new Error("Contract address is already set.");
+  const taken = coins.some(
+    (c) => c.id !== coin.id && c.contractAddress && c.contractAddress.toLowerCase() === addr.toLowerCase(),
+  );
+  if (taken) throw new Error("That contract address is already linked to a coin.");
+
+  coin.contractAddress = addr;
+  coin.status = "live";
+  coin.liveAt = Date.now();
+  coin.pinnedFirst = true;
+  saveCoins(coins);
+  emit();
+  return getState().coins.find((c) => c.id === coin.id) || coin;
 }
 
 export function progressOf(coin) {
@@ -320,7 +397,7 @@ export function tickOpenings() {
     return c;
   });
   if (changed) {
-    write(KEYS.coins, coins);
+    saveCoins(coins);
     emit();
   }
 }

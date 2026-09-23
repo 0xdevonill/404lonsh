@@ -184,6 +184,10 @@ export const HOW_IT_WORKS = [
 
 export const FAQ = [
   {
+    q: "When does a coin go live?",
+    a: "Deploy first. Name, ticker, description, market cap, chart, and trade history are saved immediately, but the coin stays deployed until the creator adds the contract address. That address sends it live and pins it to the first slot on the board.",
+  },
+  {
     q: "What is 404 Launch Fun?",
     a: "A card-based token launchpad for the 404 Origin ecosystem. Creators upload a logo, set supply and commission, optionally buy at launch, then the pulse curve fills in public.",
   },

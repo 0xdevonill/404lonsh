@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useLaunchStore } from "../hooks/useLaunchStore.js";
 import { DEFAULT_SUPPLY, ETH_USD, GRADUATION_MCAP } from "../lib/data.js";
 import { formatNum, formatTokens, formatUsd, shorten, timeAgo } from "../lib/format.js";
-import { addReply, connectDemoWallet, progressOf, quoteBuy, quoteSell, trade } from "../lib/store.js";
+import { addReply, connectDemoWallet, progressOf, quoteBuy, quoteSell, setContractAddress, trade } from "../lib/store.js";
 import { priceFromMcap } from "../lib/chart.js";
 import TradingChart from "../components/TradingChart.jsx";
 
@@ -15,6 +15,8 @@ export default function Coin() {
   const [amount, setAmount] = useState("0.05");
   const [error, setError] = useState("");
   const [reply, setReply] = useState("");
+  const [contract, setContract] = useState("");
+  const [contractError, setContractError] = useState("");
 
   const pos = wallet ? holdings[wallet]?.[id] : null;
   const pct = coin ? progressOf(coin) : 0;
@@ -67,6 +69,19 @@ export default function Coin() {
     }
   }
 
+  function onContract(e) {
+    e.preventDefault();
+    setContractError("");
+    try {
+      setContractAddress(coin.id, contract);
+      setContract("");
+    } catch (err) {
+      setContractError(err.message);
+    }
+  }
+
+  const isCreator = Boolean(wallet && coin.creator && wallet.toLowerCase() === coin.creator.toLowerCase());
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col lg:flex-row gap-6">
@@ -85,6 +100,7 @@ export default function Coin() {
                   <span>{timeAgo(coin.createdAt)}</span>
                   {coin.twitter && <span>@{coin.twitter}</span>}
                   <span className="text-neon">{coin.creatorFee || 0}% creator fee</span>
+                  {coin.contractAddress && <span className="text-neon">{shorten(coin.contractAddress, 6)}</span>}
                 </div>
               </div>
             </div>
@@ -146,6 +162,45 @@ export default function Coin() {
         </div>
 
         <aside className="w-full lg:w-[360px] space-y-4">
+          {(coin.status === "deployed" || coin.contractAddress) && (
+            <div className="glass-strong pixel-corners p-5 space-y-3">
+              <div className="label-mono">Contract address</div>
+              {coin.contractAddress ? (
+                <p className="text-xs break-all text-neon">{coin.contractAddress}</p>
+              ) : isCreator ? (
+                <form onSubmit={onContract} className="space-y-3">
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Name, ticker, description, market cap, chart, and history stay. Adding the contract address sends this coin live and pins it first.
+                  </p>
+                  <input
+                    value={contract}
+                    onChange={(e) => setContract(e.target.value.trim())}
+                    placeholder="0x…"
+                    spellCheck={false}
+                    autoComplete="off"
+                    className="input-terminal"
+                  />
+                  {contractError && <p className="text-xs text-red-400">{contractError}</p>}
+                  <button type="submit" className="btn-neon w-full">
+                    Add address & go live
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-zinc-500">
+                    {wallet
+                      ? "Waiting on the creator to add the contract address."
+                      : "Connect the creator wallet to add the contract address."}
+                  </p>
+                  {!wallet && (
+                    <button type="button" onClick={() => connectDemoWallet()} className="btn-ghost w-full">
+                      Connect wallet
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <div className="glass-strong pixel-corners p-5">
             <div className="flex gap-2 mb-4">
               {["buy", "sell"].map((s) => (
@@ -211,8 +266,19 @@ export default function Coin() {
                 </div>
               )}
               {error && <p className="text-xs text-red-400">{error}</p>}
-              <button type="submit" data-testid="trade-submit" className="btn-neon w-full" disabled={coin.status === "upcoming"}>
-                {!wallet ? "Connect to trade" : coin.status === "upcoming" ? "Not live yet" : `${side} $${coin.ticker}`}
+              <button
+                type="submit"
+                data-testid="trade-submit"
+                className="btn-neon w-full disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={coin.status === "upcoming" || coin.status === "deployed"}
+              >
+                {!wallet
+                  ? "Connect to trade"
+                  : coin.status === "deployed"
+                    ? "Add contract to go live"
+                    : coin.status === "upcoming"
+                      ? "Not live yet"
+                      : `${side} $${coin.ticker}`}
               </button>
               <p className="text-[10px] text-zinc-600">
                 Demo ETH balance {eth.toFixed(4)} · This terminal does not broadcast chain txs.
