@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useLaunchStore } from "../hooks/useLaunchStore.js";
 import { ETH_USD, GRADUATION_MCAP } from "../lib/data.js";
 import { formatNum, formatTokens, formatUsd, shorten, timeAgo } from "../lib/format.js";
-import { addReply, progressOf, quoteBuy, quoteSell, trade } from "../lib/store.js";
+import { addReply, connectDemoWallet, progressOf, quoteBuy, quoteSell, trade } from "../lib/store.js";
 
 export default function Coin() {
   const { id } = useParams();
@@ -37,10 +37,13 @@ export default function Coin() {
     );
   }
 
-  function onTrade(e) {
+  async function onTrade(e) {
     e.preventDefault();
     setError("");
     try {
+      if (!wallet) {
+        await connectDemoWallet();
+      }
       trade({
         coinId: coin.id,
         side,
@@ -202,7 +205,7 @@ export default function Coin() {
                 </div>
               )}
               {error && <p className="text-xs text-red-400">{error}</p>}
-              <button type="submit" className="btn-neon w-full" disabled={coin.status === "upcoming"}>
+              <button type="submit" data-testid="trade-submit" className="btn-neon w-full" disabled={coin.status === "upcoming"}>
                 {!wallet ? "Connect to trade" : coin.status === "upcoming" ? "Not live yet" : `${side} $${coin.ticker}`}
               </button>
               <p className="text-[10px] text-zinc-600">

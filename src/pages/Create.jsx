@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLaunchStore } from "../hooks/useLaunchStore.js";
-import { launchCoin } from "../lib/store.js";
+import { connectDemoWallet, launchCoin } from "../lib/store.js";
 import { punkAvatarSvg } from "../lib/punkAvatar.js";
 
 export default function Create() {
@@ -15,10 +15,13 @@ export default function Create() {
 
   const preview = punkAvatarSvg((ticker || "NEW") + name);
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
     setError("");
     try {
+      if (!wallet) {
+        await connectDemoWallet();
+      }
       const coin = launchCoin({ name, ticker, description, twitter });
       navigate(`/coin/${coin.id}`);
     } catch (err) {
