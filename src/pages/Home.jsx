@@ -10,7 +10,10 @@ export default function Home() {
   const { coins, trades } = useLaunchStore();
   const live = coins.filter((c) => c.status === "live");
   const upcoming = coins.filter((c) => c.status === "upcoming");
-  const featured = [...live, ...upcoming].slice(0, 6);
+  const pinned = coins.filter((c) => c.pinnedFirst && c.contractAddress);
+  const featured = [...pinned, ...live, ...upcoming]
+    .filter((coin, index, arr) => arr.findIndex((item) => item.id === coin.id) === index)
+    .slice(0, 6);
   const volume = coins.reduce((s, c) => s + (c.volume || 0), 0);
   const next = upcoming.slice().sort((a, b) => (a.opensAt || 0) - (b.opensAt || 0))[0];
   const nextMins = next?.opensAt ? Math.max(0, Math.ceil((next.opensAt - Date.now()) / 60000)) : 0;

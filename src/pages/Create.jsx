@@ -65,7 +65,7 @@ export default function Create() {
           LAUNCH A <span className="gradient-text">COIN</span>
         </h1>
         <p className="text-zinc-500 text-xs sm:text-sm mt-3 max-w-xl">
-          Pump-style launch on the 404 terminal. Upload a logo, set supply, lock creator commission, and buy your own coin as it goes live.
+          Pump-style launch on the 404 terminal. Upload a logo, set supply, lock creator commission, and buy your own coin. It goes live when you add the contract address, and that coin stays in the first slot.
         </p>
       </div>
 
@@ -205,6 +205,9 @@ export default function Create() {
           <button type="submit" className="btn-neon">
             {wallet ? "Launch coin" : "Connect & launch"}
           </button>
+          <p className="text-[10px] text-zinc-600">
+            Deploy keeps the name, ticker, description, market cap, chart, and history. Add the contract address on the next screen to go live — it stays pinned first.
+          </p>
         </div>
       </form>
     </div>

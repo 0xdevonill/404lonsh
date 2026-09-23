@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { connectDemoWallet, disconnectWallet } from "../lib/store.js";
 import { shorten } from "../lib/format.js";
 import { useLaunchStore } from "../hooks/useLaunchStore.js";
+import PixelLogo from "./PixelLogo.jsx";
 
 const LINKS = [
   { to: "/", label: "Home" },
@@ -26,11 +27,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-void/80 backdrop-blur-xl">
       <nav className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8">
-        <NavLink to="/" className="group flex items-center gap-3">
-          <span className="relative grid h-9 w-9 place-items-center border border-neon/40 bg-neon/10 text-neon text-[11px] font-bold font-mono transition-transform duration-500 group-hover:rotate-6">
-            4L
-            <span className="absolute -top-px -right-px h-1.5 w-1.5 bg-neon" />
-          </span>
+        <NavLink to="/" className="group flex items-center gap-3" aria-label="404 Launch Fun home">
+          <PixelLogo className="transition-transform duration-500 group-hover:rotate-6" />
           <span className="font-display text-sm font-bold tracking-[0.18em] uppercase">
             404<span className="text-neon">Launch</span>Fun
           </span>
