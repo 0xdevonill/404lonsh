@@ -63,6 +63,25 @@ export function getState() {
   };
 }
 
+export async function connectDemoWallet() {
+  try {
+    if (typeof window !== "undefined" && window.ethereum?.request) {
+      const accounts = await Promise.race([
+        window.ethereum.request({ method: "eth_requestAccounts" }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("wallet timeout")), 1200)),
+      ]);
+      if (accounts?.[0]) {
+        connectWallet(accounts[0]);
+        return getState();
+      }
+    }
+  } catch {
+    /* demo wallet */
+  }
+  connectWallet();
+  return getState();
+}
+
 export function connectWallet(existing) {
   const address = existing || randomHex(20);
   write(KEYS.wallet, address);

@@ -12,6 +12,11 @@ export function formatUsd(n) {
 
 export function formatNum(n, digits = 2) {
   const v = Number(n) || 0;
+  if (digits === 0) {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+    return String(Math.round(v));
+  }
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(digits)}M`;
   if (v >= 1_000) return `${(v / 1_000).toFixed(digits)}K`;
   if (v >= 10) return v.toFixed(0);

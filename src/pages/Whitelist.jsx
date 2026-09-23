@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLaunchStore } from "../hooks/useLaunchStore.js";
-import { connectWallet, updateProfile } from "../lib/store.js";
+import { connectDemoWallet, connectWallet, updateProfile } from "../lib/store.js";
 import { shorten } from "../lib/format.js";
 
 export default function Whitelist() {
@@ -15,19 +15,13 @@ export default function Whitelist() {
   const clearance = profile?.clearance || 0;
   const verified = members.filter((m) => m.clearance === 100).length;
 
+  useEffect(() => {
+    if (profile?.handle) setHandle(profile.handle);
+    if (profile?.email) setEmail(profile.email);
+  }, [profile]);
+
   async function connect() {
-    try {
-      if (window.ethereum?.request) {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        if (accounts?.[0]) {
-          connectWallet(accounts[0]);
-          return;
-        }
-      }
-    } catch {
-      /* demo */
-    }
-    connectWallet();
+    await connectDemoWallet();
   }
 
   function pasteWallet(e) {
@@ -103,7 +97,7 @@ export default function Whitelist() {
             </div>
           ) : (
             <div className="mt-6 space-y-3">
-              <button type="button" onClick={connect} className="btn-neon w-full">
+              <button type="button" data-testid="whitelist-connect" onClick={connect} className="btn-neon w-full">
                 Connect wallet
               </button>
               <form onSubmit={pasteWallet} className="flex gap-2">
@@ -124,7 +118,9 @@ export default function Whitelist() {
         <div className={`glass-strong pixel-corners p-6 ${clearance === 100 ? "border-neon/40" : ""}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="label-mono">Step 02 · Verify X</div>
-            <span className="text-neon font-display font-bold">{clearance === 100 ? "100%" : "50%"}</span>
+            <span className="text-neon font-display font-bold">
+              {clearance === 100 ? "100%" : clearance >= 50 ? "50%" : "0%"}
+            </span>
           </div>
           <h2 className="font-display text-2xl font-bold">Lock the card</h2>
           <p className="text-xs text-zinc-500 mt-2">
