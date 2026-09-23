@@ -57,8 +57,3 @@ export function randomHex(bytes = 20) {
   crypto.getRandomValues(arr);
   return `0x${Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
-
-export function makeClearanceCode(addr) {
-  const h = hashString((addr || "404") + Date.now().toString(36));
-  return `4L-${h.toString(16).slice(0, 6).toUpperCase()}`;
-}

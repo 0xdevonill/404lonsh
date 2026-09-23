@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLaunchStore } from "../hooks/useLaunchStore.js";
-import { ETH_USD, GRADUATION_MCAP } from "../lib/data.js";
+import { DEFAULT_SUPPLY, ETH_USD, GRADUATION_MCAP } from "../lib/data.js";
 import { formatNum, formatTokens, formatUsd, shorten, timeAgo } from "../lib/format.js";
 import { addReply, connectDemoWallet, progressOf, quoteBuy, quoteSell, trade } from "../lib/store.js";
+import { priceFromMcap } from "../lib/chart.js";
+import TradingChart from "../components/TradingChart.jsx";
 
 export default function Coin() {
   const { id } = useParams();
@@ -17,6 +19,7 @@ export default function Coin() {
   const pos = wallet ? holdings[wallet]?.[id] : null;
   const pct = coin ? progressOf(coin) : 0;
   const tape = trades.filter((t) => t.coinId === id);
+  const price = coin ? priceFromMcap(coin.mcap || 0, coin.supply || DEFAULT_SUPPLY) : 0;
 
   const quote = useMemo(() => {
     if (!coin) return null;
@@ -41,9 +44,7 @@ export default function Coin() {
     e.preventDefault();
     setError("");
     try {
-      if (!wallet) {
-        await connectDemoWallet();
-      }
+      if (!wallet) await connectDemoWallet();
       trade({
         coinId: coin.id,
         side,
@@ -83,7 +84,7 @@ export default function Coin() {
                   <span>Creator {shorten(coin.creator)}</span>
                   <span>{timeAgo(coin.createdAt)}</span>
                   {coin.twitter && <span>@{coin.twitter}</span>}
-                  {coin.featured && <span className="text-neon">Featured whitelist slot</span>}
+                  <span className="text-neon">{coin.creatorFee || 0}% creator fee</span>
                 </div>
               </div>
             </div>
@@ -93,6 +94,12 @@ export default function Coin() {
               <Metric label="Volume" value={formatUsd(coin.volume)} />
               <Metric label="Holders" value={formatNum(coin.holders, 0)} />
               <Metric label="Progress" value={`${pct.toFixed(1)}%`} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+              <Metric label="Price" value={price ? price.toExponential(2) : "—"} />
+              <Metric label="Supply" value={formatTokens(coin.supply || DEFAULT_SUPPLY)} />
+              <Metric label="Creator fee" value={`${coin.creatorFee || 0}%`} />
+              <Metric label="Fees earned" value={`${(coin.creatorFeesEth || 0).toFixed(4)} ETH`} />
             </div>
 
             <div className="mt-6">
@@ -104,9 +111,9 @@ export default function Coin() {
                 <div className="progress-fill" style={{ width: `${pct}%` }} />
               </div>
             </div>
-
-            <CurveBars coin={coin} />
           </div>
+
+          <TradingChart candles={coin.candles || []} ticker={coin.ticker} />
 
           <div className="glass pixel-corners p-5">
             <div className="label-mono mb-4">Thread</div>
@@ -172,11 +179,7 @@ export default function Coin() {
                       key={v}
                       type="button"
                       onClick={() =>
-                        setAmount(
-                          side === "buy"
-                            ? v
-                            : String(((pos?.tokens || 0) * Number(v)) / 100),
-                        )
+                        setAmount(side === "buy" ? v : String(((pos?.tokens || 0) * Number(v)) / 100))
                       }
                       className="glass pixel-corners px-2 py-1 text-[10px] tracking-widest uppercase text-zinc-400"
                     >
@@ -191,6 +194,9 @@ export default function Coin() {
                     <>
                       <p>
                         You receive <span className="text-neon">{formatTokens(quote.tokens)}</span> ${coin.ticker}
+                      </p>
+                      <p>
+                        Creator fee {coin.creatorFee || 0}% · {quote.feeEth.toFixed(4)} ETH
                       </p>
                       <p>Fills curve by {formatUsd(quote.usd)} · ETH/USD {ETH_USD}</p>
                     </>
@@ -258,26 +264,7 @@ function Metric({ label, value }) {
   return (
     <div>
       <div className="label-mono">{label}</div>
-      <div className="font-display text-xl font-bold text-white mt-1">{value}</div>
-    </div>
-  );
-}
-
-function CurveBars({ coin }) {
-  const seed = coin.ticker.length * 17;
-  const bars = Array.from({ length: 28 }, (_, i) => {
-    const wave = Math.abs(Math.sin((i + seed) / 3.1)) * 40 + (coin.mcap / GRADUATION_MCAP) * 50;
-    return Math.min(100, 12 + wave + (i > 20 ? i : 0) * 0.4);
-  });
-  return (
-    <div className="mt-8 flex items-end gap-[3px] h-24">
-      {bars.map((h, i) => (
-        <div
-          key={i}
-          className="flex-1 bg-gradient-to-t from-neon/20 to-neon"
-          style={{ height: `${h}%`, opacity: 0.35 + (i / bars.length) * 0.65 }}
-        />
-      ))}
+      <div className="font-display text-xl font-bold text-white mt-1 tabular-nums">{value}</div>
     </div>
   );
 }
